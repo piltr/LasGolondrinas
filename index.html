@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Golondrina - Mapa en Vivo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; background: #f0f0f0; overflow: hidden; }
+        #map { height: 100vh; width: 100%; }
+        
+        .overlay {
+            position: absolute; top: 15px; width: 100%; text-align: center;
+            z-index: 1000; pointer-events: none;
+        }
+        .msg { 
+            color: #2c3e50; background: rgba(255,255,255,0.9); padding: 10px 20px; 
+            border-radius: 10px; border: 2px solid #2c3e50; display: inline-block;
+            font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Estilo del Colectivo */
+        .colectivo-icon { 
+            cursor: pointer;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+
+        /* EXPLOSIÓN GRÁFICAMENTE INTENSA */
+        @keyframes explosion-viva {
+            0% { 
+                transform: scale(1) rotate(0deg); 
+                filter: brightness(1) contrast(1) blur(0px);
+                opacity: 1;
+            }
+            20% {
+                filter: brightness(10) blur(2px);
+                transform: scale(1.8);
+            }
+            100% { 
+                transform: scale(8) rotate(45deg); 
+                filter: brightness(0) blur(30px); 
+                opacity: 0; 
+            }
+        }
+        
+        .explotando { 
+            animation: explosion-viva 0.6s ease-out forwards; 
+            pointer-events: none;
+            z-index: 9999 !important;
+        }
+
+        /* Destello de pantalla */
+        .flash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; opacity: 0; pointer-events: none; z-index: 10000;
+        }
+        .flash-active { animation: flash-anim 0.2s ease-out; }
+        @keyframes flash-anim {
+            0% { opacity: 0.7; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="flash" id="screen-flash"></div>
+<div class="overlay"><div class="msg">TOQUE UN COLECTIVO PARA DETONARLO</div></div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // 1. Configuración del mapa normal (OpenStreetMap)
+    var map = L.map('map', { zoomControl: false }).setView([-41.9667, -71.5363], 15);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    const plazaPagano = { lat: -41.9667, lng: -71.5363 };
+
+    // Icono de Colectivo
+    const busHtml = `
+        <img src="https://cdn-icons-png.flaticon.com/512/3448/3448339.png" class="colectivo-icon" style="width:50px; height:50px;">
+    `;
+
+    let unidades = [];
+
+    function crearUnidad() {
+        let angulo = Math.random() * Math.PI * 2;
+        let velocidad = 0.00004 + Math.random() * 0.00006;
+        
+        let icono = L.divIcon({ 
+            html: busHtml, 
+            className: '', iconSize: [50, 50], iconAnchor: [25, 25] 
+        });
+
+        let marker = L.marker([plazaPagano.lat, plazaPagano.lng], { icon: icono }).addTo(map);
+        
+        let unidad = {
+            marker: marker,
+            vx: Math.cos(angulo) * velocidad,
+            vy: Math.sin(angulo) * velocidad,
+            anguloDeg: (angulo * 180 / Math.PI) + 90
+        };
+
+        marker.on('click', function() {
+            // Flash de pantalla
+            const flash = document.getElementById('screen-flash');
+            flash.classList.remove('flash-active');
+            void flash.offsetWidth;
+            flash.classList.add('flash-active');
+
+            // Animación de explosión
+            let el = marker.getElement();
+            el.classList.add('explotando');
+            
+            setTimeout(() => {
+                map.removeLayer(marker);
+                unidades = unidades.filter(u => u !== unidad);
+            }, 600);
+        });
+
+        unidades.push(unidad);
+    }
+
+    // Generar colectivos cada 2 segundos
+    setInterval(crearUnidad, 2000);
+
+    // Unidades iniciales
+    crearUnidad();
+    crearUnidad();
+
+    function animar() {
+        unidades.forEach(u => {
+            let pos = u.marker.getLatLng();
+            u.marker.setLatLng([pos.lat + u.vy, pos.lng + u.vx]);
+            
+            if (u.marker.getElement() && !u.marker.getElement().classList.contains('explotando')) {
+                // Rotar el colectivo según su dirección
+                u.marker.getElement().style.transform += ` rotate(${u.anguloDeg}deg)`;
+            }
+
+            // Limpieza si se alejan demasiado
+            let dist = Math.sqrt(Math.pow(pos.lat - plazaPagano.lat, 2) + Math.pow(pos.lng - plazaPagano.lng, 2));
+            if (dist > 0.05) {
+                map.removeLayer(u.marker);
+                unidades = unidades.filter(un => un !== u);
+            }
+        });
+        requestAnimationFrame(animar);
+    }
+
+    animar();
+</script>
+</body>
+</html>
