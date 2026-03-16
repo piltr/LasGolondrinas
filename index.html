@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Golondrina - En Vivo (Simulación)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 0; }
+        header { background: #2c3e50; color: white; padding: 10px; text-align: center; }
+        #map { height: 70vh; width: 100%; }
+        .controles { padding: 15px; background: #f4f4f4; }
+        select { padding: 10px; width: 100%; font-size: 16px; border-radius: 5px; }
+        .status { margin-top: 10px; font-weight: bold; color: #27ae60; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>Transporte La Golondrina</h2>
+</header>
+
+<div class="controles">
+    <label>Seleccionar Recorrido:</label>
+    <select id="ruta">
+        <option value="puelo">El Bolsón ↔ Lago Puelo</option>
+        <option value="hoyo">El Bolsón ↔ El Hoyo</option>
+        <option value="mallin">El Bolsón ↔ Mallín Ahogado</option>
+    </select>
+    <div class="status" id="proximo">Próxima salida: Verificando...</div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Configuración inicial del mapa en el centro de El Bolsón
+    var map = L.map('map').setView([-41.9667, -71.5333], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Icono personalizado para el colectivo
+    var busIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+        iconSize: [35, 35]
+    });
+
+    // Marcador del colectivo
+    var busMarker = L.marker([-41.9667, -71.5333], {icon: busIcon}).addTo(map)
+        .bindPopup('Unidad La Golondrina en camino');
+
+    // Simulación de movimiento (Ya que no hay API real)
+    function simularMovimiento() {
+        // Aquí simulamos que el colectivo se mueve por la Av. San Martín
+        let lat = -41.9667 + (Math.random() - 0.5) * 0.01;
+        let lng = -71.5333 + (Math.random() - 0.5) * 0.01;
+        busMarker.setLatLng([lat, lng]);
+    }
+
+    // Actualizar cada 5 segundos
+    setInterval(simularMovimiento, 5000);
+
+    // Lógica sencilla de horarios
+    const horarios = {
+        puelo: "Cada 20 min",
+        hoyo: "Cada 1 hora",
+        mallin: "Frecuencia reducida"
+    };
+
+    document.getElementById('ruta').addEventListener('change', function(e) {
+        document.getElementById('proximo').innerText = "Frecuencia: " + horarios[e.target.value];
+    });
+</script>
+
+</body>
+</html>
