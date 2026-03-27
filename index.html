@@ -1,0 +1,171 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Golondrina - Live Tracker</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        /* 1. ESTILOS DE MARCADORES */
+        .bus-stop {
+            background: #2980b9;
+            width: 30px; 
+            height: 30px;
+            border-radius: 10%;
+            border: 2px solid rgb(0, 0, 0);
+            box-shadow: 0 0 10px rgba(41, 128, 185, 0.8);
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .bus-stop span {
+            display: inline-block;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .icon-colectivo {
+            background: #e67e22; 
+            width: 20px; height: 20px; 
+            border-radius: 50%; 
+            border: 3px solid white; 
+            box-shadow: 0 0 15px rgba(230, 126, 34, 0.7);
+            animation: radar 2s infinite; 
+        }
+
+        .market-ad {
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px);
+            color: #2c3e50; padding: 8px 16px; border-radius: 25px;
+            font-size: 13px; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            white-space: nowrap;
+        }
+
+        /* 2. ESTILOS BASE Y UI */
+        body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; background-color: #f8f9fa; overflow: hidden; }
+        #mapa { height: 100vh; width: 100vw; z-index: 1; }
+
+        .header-vidrio {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3); padding: 12px 30px; 
+            border-radius: 40px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            z-index: 1000; display: flex; align-items: center; gap: 15px;
+        }
+
+        .btn-flotante {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(135deg, #e67e22, #d35400); color: white;
+            border: none; padding: 14px 28px; border-radius: 30px;
+            font-weight: 600; cursor: pointer; z-index: 1000;
+        }
+
+        /* 3. MODAL */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px);
+            z-index: 2000; display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content { background: #fff; padding: 10px; border-radius: 20px; max-width: 90vw; }
+        .modal-content img { width: 100%; border-radius: 12px; }
+
+        @keyframes radar {
+            0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(230, 126, 34, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-vidrio">
+        <div style="width:10px; height:10px; background:#ff4757; border-radius:50%;"></div>
+        <h1>Live Tracker</h1>
+    </div>
+
+    <button class="btn-flotante" onclick="toggleModal(true)">🗺️ VER RECORRIDOS</button>
+
+    <div class="modal-overlay" id="modal" onclick="toggleModal(false)">
+        <div class="modal-content"><img src="image_6c4c4b.jpg"></div>
+    </div>
+
+    <div id="mapa"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+
+// rutaLineaA.push(nuevaParada);
+        const mapa = L.map('mapa', { zoomControl: false }).setView([-41.9667, -71.5333], 15);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(mapa);
+
+        const rutaLineaA = [
+            [-41.95557062027119, -71.53369120672403], 
+            [-41.99991580404137, -71.54333836317419]
+        ];
+
+        L.polyline(rutaLineaA, { color: '#2980b9', weight: 7, opacity: 0.6 }).addTo(mapa);
+
+        // --- B. FUNCIONES ---
+        function agregarParada(lat, lng, nombre, rotacion = 0) {
+            const icono = L.divIcon({
+                html: `<div class="bus-stop"><span style="transform: rotate(${rotacion}deg);">➤</span></div>`,
+                className: 'custom-icon',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15] 
+            });
+            L.marker([lat, lng], { icon: icono }).addTo(mapa)
+                .bindPopup(`<div style="text-align:center;"><strong>🚏 PARADA</strong><br>${nombre}</div>`);
+        }
+
+        function crearMarcadorColectivo(pos, nombre) {
+            const icono = L.divIcon({ html: '<div class="icon-colectivo"></div>', className: 'custom-icon' });
+            return L.marker(pos, { icon: icono }).addTo(mapa).bindPopup(`<b>${nombre}</b>`);
+        }
+
+        function agregarComercio(lat, lng, nombre) {
+            const icono = L.divIcon({ html: `<div class="market-ad">📍 ${nombre}</div>`, className: 'custom-icon' });
+            L.marker([lat, lng], { icon: icono }).addTo(mapa);
+        }
+
+        // --- C. ANIMACIÓN ---
+        const bus1 = crearMarcadorColectivo(rutaLineaA[0], "Línea A - Ida");
+        const bus2 = crearMarcadorColectivo(rutaLineaA[1], "Línea A - Vuelta");
+        let progreso = 0;
+        const velocidad = 0.000005;
+
+        function animar() {
+            progreso += velocidad;
+            if (progreso > 1) progreso = 0;
+
+            // Bus 1
+            const lat1 = rutaLineaA[0][0] + (rutaLineaA[1][0] - rutaLineaA[0][0]) * progreso;
+            const lng1 = rutaLineaA[0][1] + (rutaLineaA[1][1] - rutaLineaA[0][1]) * progreso;
+            bus1.setLatLng([lat1, lng1]);
+
+            // Bus 2
+            const pInv = 1 - progreso;
+            const lat2 = rutaLineaA[0][0] + (rutaLineaA[1][0] - rutaLineaA[0][0]) * pInv;
+            const lng2 = rutaLineaA[0][1] + (rutaLineaA[1][1] - rutaLineaA[0][1]) * pInv;
+            bus2.setLatLng([lat2, lng2]);
+
+            requestAnimationFrame(animar);
+        }
+
+        function toggleModal(s) { document.getElementById('modal').classList.toggle('active', s); }
+
+        // --- D. INICIALIZACIÓN ---
+        agregarParada(-41.955608981274246, -71.53361383302381, "Terminal Norte (Cabecera)", 98);
+        agregarParada(-41.967439210496714, -71.53642135774923, "Automovil Club", 98);
+        agregarComercio(-41.9685, -71.5380, "Punto de Venta");
+        animar();
+
+    </script>
+</body>
+</html>
