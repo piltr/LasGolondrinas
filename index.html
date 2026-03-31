@@ -1,0 +1,196 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Golondrina - Live Tracker Ciclo Horario</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        /* ESTILOS DE MARCADORES */
+        .bus-stop {
+            background: #2980b9;
+            width: 30px; height: 30px;
+            border-radius: 10%;
+            border: 2px solid #000;
+            box-shadow: 0 0 10px rgba(41, 128, 185, 0.8);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .bus-stop span { 
+            color: white; 
+            font-size: 18px; 
+            font-weight: bold; 
+            transform: rotate(-260deg); 
+            display: inline-block; 
+        }
+
+        .icon-colectivo {
+            background: #e67e22; 
+            width: 22px; height: 22px; 
+            border-radius: 50%; 
+            border: 3px solid white; 
+            box-shadow: 0 0 15px rgba(230, 126, 34, 0.7);
+            animation: radar 2s infinite; 
+        }
+
+        /* UI BASE */
+        body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; background-color: #f8f9fa; overflow: hidden; }
+        #mapa { height: 100vh; width: 100vw; z-index: 1; }
+
+        .header-vidrio {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3); padding: 5px 25px; 
+            border-radius: 40px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            z-index: 1000; display: flex; align-items: center; gap: 15px;
+        }
+        .header-vidrio h1 { font-size: 16px; color: #2c3e50; margin: 10px 0; text-transform: uppercase; letter-spacing: 1px; }
+
+        .controles-flotantes {
+            position: absolute; bottom: 30px; right: 20px;
+            display: flex; flex-direction: column; gap: 12px; z-index: 1000;
+        }
+
+        .btn-accion {
+            background: white; border: 1px solid #ddd; color: #2c3e50;
+            padding: 12px 20px; border-radius: 20px; font-weight: 600;
+            text-decoration: none; cursor: pointer; display: flex;
+            align-items: center; gap: 10px; font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primario { background: #e67e22; color: white; border: none; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px);
+            z-index: 2000; display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content { background: #fff; padding: 10px; border-radius: 20px; max-width: 90vw; }
+        .modal-content img { width: 100%; border-radius: 12px; display: block; }
+
+        @keyframes radar {
+            0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(230, 126, 34, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-vidrio">
+        <div style="width:10px; height:10px; background:#2ecc71; border-radius:50%;"></div>
+        <h1>La Golondrina - Live</h1>
+    </div>
+
+    <div class="controles-flotantes">
+        <a href="chat.html" class="btn-accion"><span>💬</span> Chat</a>
+        <button class="btn-accion btn-primario" onclick="toggleModal(true)"><span>🗺️</span> Horarios</button>
+    </div>
+
+    <div class="modal-overlay" id="modal" onclick="toggleModal(false)">
+        <div class="modal-content">
+            <img src="image_6c4c4b.jpg" alt="Horarios">
+        </div>
+    </div>
+
+    <div id="mapa"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // --- 1. CONFIGURACIÓN Y DATOS ---
+        const mapa = L.map('mapa', { zoomControl: false }).setView([-41.9667, -71.5333], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(mapa);
+
+        // Cronograma Relativo: Minutos de paso desde el inicio de cada hora
+        const cronogramaRelativo = [
+            { nombre: "Aerodromo", lat: -41.9556, lng: -71.5336, min: 0 },
+            { nombre: "Plazoleta Guemes", lat: -41.9597, lng: -71.5346, min: 3 },
+            { nombre: "La Anonima", lat: -41.9630, lng: -71.5353, min: 6 },
+            { nombre: "Automovil Club", lat: -41.9674, lng: -71.5364, min: 8 },
+            { nombre: "Casa de Cultura", lat: -41.9726, lng: -71.5375, min: 10 },
+            { nombre: "El Chaqueño II", lat: -41.9787, lng: -71.5389, min: 12 },
+            { nombre: "Curruhinca", lat: -41.9843, lng: -71.5402, min: 13 },
+            { nombre: "Paralelo 42°", lat: -41.9925, lng: -71.5420, min: 15 }
+        ];
+
+        // --- 2. LÓGICA DE TIEMPO CÍCLICO ---
+
+        function obtenerPosicionPorHorario() {
+            const ahora = new Date();
+            const horaActual = ahora.getHours();
+            // Minuto actual con decimales (segundos) para que el movimiento sea fluido
+            const minActuales = ahora.getMinutes() + (ahora.getSeconds() / 60);
+
+            // Solo funciona de 07:00 a 23:59
+            if (horaActual < 7 || horaActual > 23) return null;
+
+            // Buscamos en qué tramo de los 15 minutos de viaje se encuentra
+            for (let i = 0; i < cronogramaRelativo.length - 1; i++) {
+                const pA = cronogramaRelativo[i];
+                const pB = cronogramaRelativo[i + 1];
+
+                if (minActuales >= pA.min && minActuales <= pB.min) {
+                    const progreso = (minActuales - pA.min) / (pB.min - pA.min);
+                    return {
+                        lat: pA.lat + (pB.lat - pA.lat) * progreso,
+                        lng: pA.lng + (pB.lng - pA.lng) * progreso,
+                        tramo: `${pA.nombre} ➔ ${pB.nombre}`
+                    };
+                }
+            }
+            return null; // El colectivo ya llegó al final del recorrido (minuto 15 a 59)
+        }
+
+        // --- 3. COMPONENTES DEL MAPA ---
+
+        // Dibujar el recorrido estático
+        const puntosRuta = cronogramaRelativo.map(p => [p.lat, p.lng]);
+        L.polyline(puntosRuta, { color: '#2980b9', weight: 10, opacity: 0.4, dashArray: '10, 10' }).addTo(mapa);
+
+        // Agregar paradas visuales
+        cronogramaRelativo.forEach(p => {
+            const icono = L.divIcon({
+                html: `<div class="bus-stop"><span>➤</span></div>`,
+                className: 'custom-icon', iconSize: [30, 30], iconAnchor: [15, 15] 
+            });
+            L.marker([p.lat, p.lng], { icon: icono }).addTo(mapa)
+                .bindPopup(`<b>Parada: ${p.nombre}</b><br>Sale a los :${String(p.min).padStart(2, '0')} de cada hora.`);
+        });
+
+        // El Colectivo (Marcador dinámico)
+        const busIcon = L.divIcon({ html: '<div class="icon-colectivo"></div>', className: 'custom-icon' });
+        const busMarker = L.marker([0, 0], { icon: busIcon });
+
+        // --- 4. MOTOR DE ACTUALIZACIÓN ---
+
+        function actualizarCiclo() {
+            const pos = obtenerPosicionPorHorario();
+
+            if (pos) {
+                busMarker.setLatLng([pos.lat, pos.lng]);
+                if (!mapa.hasLayer(busMarker)) busMarker.addTo(mapa);
+                busMarker.bindTooltip(`<b>Línea A</b><br>${pos.tramo}`, { permanent: false, direction: 'top' });
+            } else {
+                if (mapa.hasLayer(busMarker)) mapa.removeLayer(busMarker);
+            }
+
+            requestAnimationFrame(actualizarCiclo);
+        }
+
+        function toggleModal(s) { 
+            document.getElementById('modal').classList.toggle('active', s); 
+        }
+
+        // Inicio
+        actualizarCiclo();
+
+    </script>
+</body>
+</html>
