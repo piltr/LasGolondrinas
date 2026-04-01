@@ -3,194 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>La Golondrina - Live Tracker Ciclo Horario</title>
-
+    <title>La Comarca - Hub de Servicios</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <style>
-        /* ESTILOS DE MARCADORES */
-        .bus-stop {
-            background: #2980b9;
-            width: 30px; height: 30px;
-            border-radius: 10%;
-            border: 2px solid #000;
-            box-shadow: 0 0 10px rgba(41, 128, 185, 0.8);
-            display: flex; align-items: center; justify-content: center;
+        :root { 
+            --glass: rgba(255, 255, 255, 0.8);
+            --blur: blur(12px);
+            --acento: #e67e22;
         }
 
-        .bus-stop span { 
-            color: white; 
-            font-size: 18px; 
-            font-weight: bold; 
-            transform: rotate(-260deg); 
-            display: inline-block; 
+        body { 
+            margin: 0; font-family: 'Poppins', sans-serif; 
+            background: #f0f2f5; overflow-x: hidden;
         }
 
-        .icon-colectivo {
-            background: #e67e22; 
-            width: 22px; height: 22px; 
-            border-radius: 50%; 
-            border: 3px solid white; 
-            box-shadow: 0 0 15px rgba(230, 126, 34, 0.7);
-            animation: radar 2s infinite; 
+        /* Fondo del Mapa suavizado para el fondo */
+        #map-bg { 
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+            z-index: -1; opacity: 0.6; filter: grayscale(30%);
         }
 
-        /* UI BASE */
-        body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; background-color: #f8f9fa; overflow: hidden; }
-        #mapa { height: 100vh; width: 100vw; z-index: 1; }
-
-        .header-vidrio {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.3); padding: 5px 25px; 
-            border-radius: 40px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            z-index: 1000; display: flex; align-items: center; gap: 15px;
-        }
-        .header-vidrio h1 { font-size: 16px; color: #2c3e50; margin: 10px 0; text-transform: uppercase; letter-spacing: 1px; }
-
-        .controles-flotantes {
-            position: absolute; bottom: 30px; right: 20px;
-            display: flex; flex-direction: column; gap: 12px; z-index: 1000;
+        /* Header Estilo Vidrio */
+        .header-main {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--glass);
+            backdrop-filter: var(--blur);
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+            position: sticky; top: 0; z-index: 1000;
         }
 
-        .btn-accion {
-            background: white; border: 1px solid #ddd; color: #2c3e50;
-            padding: 12px 20px; border-radius: 20px; font-weight: 600;
-            text-decoration: none; cursor: pointer; display: flex;
-            align-items: center; gap: 10px; font-size: 14px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
+        /* Grilla de Servicios */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
         }
 
-        .btn-primario { background: #e67e22; color: white; border: none; }
-
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px);
-            z-index: 2000; display: flex; justify-content: center; align-items: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        .card-service {
+            background: var(--glass);
+            backdrop-filter: var(--blur);
+            padding: 20px;
+            border-radius: 24px;
+            text-align: center;
+            text-decoration: none;
+            color: #2c3e50;
+            border: 1px solid rgba(255,255,255,0.4);
+            transition: transform 0.2s;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
         }
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        .modal-content { background: #fff; padding: 10px; border-radius: 20px; max-width: 90vw; }
-        .modal-content img { width: 100%; border-radius: 12px; display: block; }
 
-        @keyframes radar {
-            0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(230, 126, 34, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); }
+        .card-service:active { transform: scale(0.95); }
+        .card-service i { font-size: 30px; display: block; margin-bottom: 10px; }
+        .card-service span { font-size: 13px; font-weight: 600; text-transform: uppercase; }
+
+        /* Notificaciones en tiempo real */
+        .live-feed {
+            margin: 0 20px;
+            padding: 15px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border-radius: 15px;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
 
-    <div class="header-vidrio">
-        <div style="width:10px; height:10px; background:#2ecc71; border-radius:50%;"></div>
-        <h1>La Golondrina - Live</h1>
+    <div id="map-bg"></div>
+
+    <header class="header-main">
+        <h2 style="margin:0; font-size: 18px;">🏔️ LA COMARCA</h2>
+        <div id="user-tag" style="font-size: 12px; font-weight: 800;"></div>
+    </header>
+
+    <div class="services-grid">
+        <a href="chat.html" class="card-service"><i>💬</i><span>Social</span></a>
+        <a href="#" class="card-service"><i>🛵</i><span>Delivery</span></a>
+        <a href="#" class="card-service"><i>🛍️</i><span>Productos</span></a>
+        <a href="colectivos.html" class="card-service" style="background: var(--acento); color: white;">
+            <i>🚌</i><span>Colectivos</span>
+        </a>
+        <a href="#" class="card-service"><i>🚗</i><span>Viajes</span></a>
+        <a href="#" class="card-service"><i>🛠️</i><span>Servicios</span></a>
     </div>
 
-    <div class="controles-flotantes">
-        <a href="chat.html" class="btn-accion"><span>💬</span> Chat</a>
-        <button class="btn-accion btn-primario" onclick="toggleModal(true)"><span>🗺️</span> Horarios</button>
+    <div class="live-feed" id="feed-mensajes">
+        Cargando actividad reciente...
     </div>
-
-    <div class="modal-overlay" id="modal" onclick="toggleModal(false)">
-        <div class="modal-content">
-            <img src="image_6c4c4b.jpg" alt="Horarios">
-        </div>
-    </div>
-
-    <div id="mapa"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // --- 1. CONFIGURACIÓN Y DATOS ---
-        const mapa = L.map('mapa', { zoomControl: false }).setView([-41.9667, -71.5333], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(mapa);
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Cronograma Relativo: Minutos de paso desde el inicio de cada hora
-        const cronogramaRelativo = [
-            { nombre: "Aerodromo", lat: -41.9556, lng: -71.5336, min: 0 },
-            { nombre: "Plazoleta Guemes", lat: -41.9597, lng: -71.5346, min: 3 },
-            { nombre: "La Anonima", lat: -41.9630, lng: -71.5353, min: 6 },
-            { nombre: "Automovil Club", lat: -41.9674, lng: -71.5364, min: 8 },
-            { nombre: "Casa de Cultura", lat: -41.9726, lng: -71.5375, min: 10 },
-            { nombre: "El Chaqueño II", lat: -41.9787, lng: -71.5389, min: 12 },
-            { nombre: "Curruhinca", lat: -41.9843, lng: -71.5402, min: 13 },
-            { nombre: "Paralelo 42°", lat: -41.9925, lng: -71.5420, min: 15 }
-        ];
+        // CONFIGURACIÓN FIREBASE (Copiada de tu chat.html)
+        const firebaseConfig = {
+            apiKey: "AIzaSyA7FUrAK478GwlfGg-GTU15G683zQ3rWU0",
+            authDomain: "mapa-comarca.firebaseapp.com",
+            projectId: "mapa-comarca",
+            storageBucket: "mapa-comarca.firebasestorage.app",
+            messagingSenderId: "369057855767",
+            appId: "1:369057855767:web:68fa4a6a85e811dc149f52"
+        };
 
-        // --- 2. LÓGICA DE TIEMPO CÍCLICO ---
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-        function obtenerPosicionPorHorario() {
-            const ahora = new Date();
-            const horaActual = ahora.getHours();
-            // Minuto actual con decimales (segundos) para que el movimiento sea fluido
-            const minActuales = ahora.getMinutes() + (ahora.getSeconds() / 60);
+        // MAPA DE FONDO (Opcional, solo estético)
+        const map = L.map('map-bg', { zoomControl: false, attributionControl: false }).setView([-41.9667, -71.5333], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
 
-            // Solo funciona de 07:00 a 23:59
-            if (horaActual < 7 || horaActual > 23) return null;
+        // IDENTIDAD (Persistencia entre páginas)
+        const miNombre = localStorage.getItem('chat_user_name') || "Invitado";
+        document.getElementById('user-tag').innerText = miNombre.toUpperCase();
 
-            // Buscamos en qué tramo de los 15 minutos de viaje se encuentra
-            for (let i = 0; i < cronogramaRelativo.length - 1; i++) {
-                const pA = cronogramaRelativo[i];
-                const pB = cronogramaRelativo[i + 1];
-
-                if (minActuales >= pA.min && minActuales <= pB.min) {
-                    const progreso = (minActuales - pA.min) / (pB.min - pA.min);
-                    return {
-                        lat: pA.lat + (pB.lat - pA.lat) * progreso,
-                        lng: pA.lng + (pB.lng - pA.lng) * progreso,
-                        tramo: `${pA.nombre} ➔ ${pB.nombre}`
-                    };
-                }
-            }
-            return null; // El colectivo ya llegó al final del recorrido (minuto 15 a 59)
-        }
-
-        // --- 3. COMPONENTES DEL MAPA ---
-
-        // Dibujar el recorrido estático
-        const puntosRuta = cronogramaRelativo.map(p => [p.lat, p.lng]);
-        L.polyline(puntosRuta, { color: '#2980b9', weight: 10, opacity: 0.4, dashArray: '10, 10' }).addTo(mapa);
-
-        // Agregar paradas visuales
-        cronogramaRelativo.forEach(p => {
-            const icono = L.divIcon({
-                html: `<div class="bus-stop"><span>➤</span></div>`,
-                className: 'custom-icon', iconSize: [30, 30], iconAnchor: [15, 15] 
+        // LOGICA DE FEED: Muestra el último mensaje del chat en el Dashboard
+        const q = query(collection(db, "mensajes"), orderBy("tiempo", "desc"), limit(1));
+        onSnapshot(q, (snapshot) => {
+            const feed = document.getElementById('feed-mensajes');
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                feed.innerHTML = `<strong>ÚLTIMO AVISO:</strong> ${data.nombre}: ${data.texto}`;
             });
-            L.marker([p.lat, p.lng], { icon: icono }).addTo(mapa)
-                .bindPopup(`<b>Parada: ${p.nombre}</b><br>Sale a los :${String(p.min).padStart(2, '0')} de cada hora.`);
         });
-
-        // El Colectivo (Marcador dinámico)
-        const busIcon = L.divIcon({ html: '<div class="icon-colectivo"></div>', className: 'custom-icon' });
-        const busMarker = L.marker([0, 0], { icon: busIcon });
-
-        // --- 4. MOTOR DE ACTUALIZACIÓN ---
-
-        function actualizarCiclo() {
-            const pos = obtenerPosicionPorHorario();
-
-            if (pos) {
-                busMarker.setLatLng([pos.lat, pos.lng]);
-                if (!mapa.hasLayer(busMarker)) busMarker.addTo(mapa);
-                busMarker.bindTooltip(`<b>Línea A</b><br>${pos.tramo}`, { permanent: false, direction: 'top' });
-            } else {
-                if (mapa.hasLayer(busMarker)) mapa.removeLayer(busMarker);
-            }
-
-            requestAnimationFrame(actualizarCiclo);
-        }
-
-        function toggleModal(s) { 
-            document.getElementById('modal').classList.toggle('active', s); 
-        }
-
-        // Inicio
-        actualizarCiclo();
-
     </script>
 </body>
 </html>
